@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Ride Request</title>
+</head>
+<body>
+    <p>Hi {{ driver_location.user.first_name }},</p>
+    <p>You have a new ride request:</p>
+    <ul>
+        <li>Pickup: {{ pickup }}</li>
+        <li>Drop: {{ drop }}</li>
+        <li>Estimated Time: {{ estimated_time }}</li>
+        <li>Estimated Distance: {{ estimated_distance }}</li>
+    </ul>
+    <p>Please click one of the following links to accept or reject the ride:</p>
+    <p>
+        <a href="{{ accept_url }}">Accept Ride</a>
+        <a href="{{ reject_url }}">Reject Ride</a>
+    </p>
+</body>
+</html>

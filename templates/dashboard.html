@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Driver dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" ></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAvSl8hKmXkz9tE8ctzuXtRQz0Y2lUFknI&libraries=places"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        body {
+            width: 100%;
+            background: #E5E7Eb;
+            position: relative;
+            display: flex;
+        }
+
+        #menu {
+            /* background: #b3b3b3; */
+            background: #075327;
+            width: 300px;
+            height: 100%;
+            position: fixed;
+            top: 0;
+            left: 0;
+        }
+
+        #menu .logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 30px 0 25px 0;
+        }
+
+        #menu .logo img {
+            width: 130px;
+        }
+
+        #menu .items {
+            margin-top: 10px;
+        }
+
+        #menu .items li {
+            list-style: none;
+            padding: 15px 0;
+            transition: 0.3s ease;
+        }
+
+        #menu .items li i {
+            /* color: #075327; */
+            color: #fff;
+            width: 30px;
+            height: 30px;
+            line-height: 30px;
+            text-align: center;
+            font-size: 25px;
+            margin: 0 10px 0 25px;
+        }
+
+        #menu .items li:hover {
+            background: #9a9a9a;
+            cursor: pointer;
+        }
+
+        #menu .items li:hover i,
+        #menu .items li:hover a {
+            color: #fff;
+            /* color: #e2e2e2; */
+        }
+
+        #menu .items li:nth-child(1) {
+            border-left: 6px solid white;
+        }
+
+        #menu .items li a {
+            text-decoration: none;
+            /* color: #075327; */
+            color: #fff;
+            font-weight: 300px;
+            font-size: 20px;
+            transition: 0.3s ease;
+        }
+        
+        #interface {
+            width: calc(100% - 300px);
+            margin-left: 300px;
+            position: relative;
+        }
+
+        #interface .navigation {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #fff;
+            padding: 15px 30px;
+            border-bottom: 3px solid #075327;
+            /* border-bottom: 3px solid #594ef7; */
+            position: fixed;
+            width: calc(100% - 300px);
+        }
+
+        #interface .navigation .search {
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+            padding: 10px 14px;
+            border: 1px solid #075327;
+            border-radius: 4px;
+        }
+
+        #interface .navigation .search i {
+            margin-right: 14px;
+        }
+
+        #interface .navigation .search input {
+            border: none;
+            outline: none;
+            font-size: 14px;
+        }
+
+        #interface .navigation .profile {
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+        }
+
+        #interface .navigation .profile img {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 50%;
+        }
+        .n1{
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+        }
+        #menu-btn{
+            display: none;
+            color: #075327;
+            font-size: 20px;
+            cursor: pointer;
+            margin-right: 20px;
+        }
+        .values{
+            padding: 30px 30px 0 30px;
+            margin-top: 75px;
+        }
+        .values .val-box{
+            background: #fff;
+            width: 100%;
+            padding: 16px 20px;
+            border-radius: 5px;
+        }
+        .values .val-box h2{
+            font-size: 25px;
+            padding: 5px 5px 10px 5px;
+        }
+        .values .val-box p{
+            font-size: 22px;
+            padding: 5px 5px 10px 5px;
+        }
+        .values .val-box span{
+            color: #075327;
+        }
+        .board{
+            width: 96%;
+            margin: 30px 0 30px 30px;
+            /* padding: 30px 30px 0 30px; */
+            overflow: auto;
+            background: #fff;
+            border-radius: 8px;
+        }
+        table{
+            border-collapse: collapse;
+        }
+        tr{
+            border-bottom: 1px solid #e0e0e0;
+        }
+        thead{
+            text-align: center;
+        }
+        thead td{
+            font-size: 14px;
+            text-transform: uppercase;
+            font-weight: 400;
+            background: #fffefe;
+            text-align: center;
+            padding: 15px;
+            font-size: 20px;
+            font-weight: 600;
+        }
+        tbody tr td{
+            padding: 15px;
+            text-align: center;
+        }
+        tbody tr td p{
+            font-size: 20px;
+        }
+
+
+       @media (max-width: 769px) {
+        #menu {
+            width: 270px;
+            position: fixed;
+            left: -270px;
+            transition: 0.3s ease;
+        }
+        #menu.active {
+            left: 0px;
+        }
+        #menu-btn{
+            display: initial;
+        }
+        #interface {
+            width: 100%;
+            margin-left: 0px;
+            position: relative;
+            display: inline-block;
+            transition: 0.3s ease;
+        }
+        #menu.active~#interface{
+            width: calc(100%-270px);
+            margin-left: 270px;
+            transition: 0.3s ease;
+        }
+        #interface .navigation {
+            width: 100%;
+        }
+        .board{
+            width: 92%;
+            padding: 0;
+            overflow-x: auto;
+        }
+        table{
+            width: 100%;
+            border-collapse: collapse;
+        }
+       }
+
+       @media (max-width:477px) {
+            #interface .navigation{
+                padding: 15px;
+            }
+            #interface .navigation .search input{
+                width: 150px;
+            }
+            .values{
+                padding: 15px 15px 0 15px;
+            }
+            .values .val-box{
+                width: 100%;
+                margin: 8px 0;
+            }
+            .board{
+                margin: 30px 15px 30px 15px;
+            }
+       }
+    </style>
+</head>
+
+<body>
+    <section id="menu">
+        <div class="logo">
+            <img src="new-logo.png" alt="">
+        </div>
+
+        <div class="items">
+            <li><i class="fa-solid fa-chart-pie"></i><a href="#">Dashboard</a></li>
+            <li><i class="fa-solid fa-user"></i><a href="#">Profile</a></li>
+            <li><i class="fa-solid fa-star"></i><a href="#">Rivews</a></li>
+            <li><i class="fa-solid fa-gear"></i><a href="#">Settings</a></li>
+        </div>
+    </section>
+
+    <section id="interface">
+        <div class="navigation">
+            <div class="n1">
+                <div>
+                    <i  id="menu-btn" class="fa-solid fa-bars"></i>
+                </div>
+                <div class="search">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" placeholder="Search">
+                </div>
+            </div>
+            <div class="profile">
+                <img src="person-1.jpg" alt="">
+            </div>
+        </div>
+
+        <div class="values">
+    <div class="val-box">
+        <h2>Welcome, <span id="driver-name">{{ driver_name }}</span>!</h2>
+        <p>Phone Number: <span id="phone-number">{{ phone_number }}</span></p>
+        <p>License Number: <span id="license-number">{{ license_number }}</span></p>
+        <p>Number Plate: <span id="number-plate">{{ number_plate }}</span></p>
+        <p>Ambulance Type: <span id="ambulance-type">{{ ambulance_type }}</span></p>
+
+    </div>
+</div>
+
+
+
+    </section>
+
+
+
+    <script>
+        $('#menu-btn').click(function(){
+            $('#menu').toggleClass("active");
+        })
+        // Get the driver's current location
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(function(position) {
+                var driverLocation = {
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude
+                };
+
+                // Reverse geocode to get location name (optional)
+                var geocoder = new google.maps.Geocoder();
+                geocoder.geocode({ location: driverLocation }, function(results, status) {
+                    if (status === 'OK') {
+                        if (results[0]) {
+                            var locationName = results[0].formatted_address;
+                            console.log('Location Name:', locationName);
+                            // Send location data to the backend for updating
+                            sendLocationToBackend(driverLocation.lat, driverLocation.lng, locationName);
+                        } else {
+                            console.error('No location results found.');
+                        }
+                    } else {
+                        console.error('Geocoder failed due to:', status);
+                    }
+                });
+            }, function(error) {
+                console.error('Error getting driver location:', error);
+            });
+        } else {
+            console.error('Geolocation is not supported by this browser.');
+        }
+
+        // Function to send location data to the backend
+function sendLocationToBackend(latitude, longitude, locationName) {
+    // Prepare data to send to the backend
+    var data = {
+        latitude: latitude,
+        longitude: longitude,
+        location_name: locationName
+    };
+
+    // Make a POST request to the backend endpoint to update the location
+    fetch('/update_location/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken') // Get CSRF token from cookie
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => {
+        if (response.ok) {
+            console.log('Location updated successfully.');
+        } else {
+            console.error('Failed to update location:', response.status);
+        }
+    })
+    .catch(error => {
+        console.error('Error updating location:', error);
+    });
+}
+
+        // Function to get CSRF token from cookie
+        function getCookie(name) {
+            var cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                var cookies = document.cookie.split(';');
+                for (var i = 0; i < cookies.length; i++) {
+                    var cookie = cookies[i].trim();
+                    // Check if cookie name matches the requested name
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        // Update driver's location in real-time
+        setInterval(function() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    var newDriverLocation = {
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude
+                    };
+
+                    // Reverse geocode to get location name (optional)
+                    var geocoder = new google.maps.Geocoder();
+                    geocoder.geocode({ location: newDriverLocation }, function(results, status) {
+                        if (status === 'OK') {
+                            if (results[0]) {
+                                var locationName = results[0].formatted_address;
+                                console.log('Location Name:', locationName);
+                                // Send location data to the backend for updating
+                                sendLocationToBackend(newDriverLocation.lat, newDriverLocation.lng, locationName);
+                            } else {
+                                console.error('No location results found.');
+                            }
+                        } else {
+                            console.error('Geocoder failed due to:', status);
+                        }
+                    });
+                }, function(error) {
+                    console.error('Error getting driver location:', error);
+                });
+            } else {
+                console.error('Geolocation is not supported by this browser.');
+            }
+        }, 5000); // Update every 5 seconds
+
+
+
+
+
+    </script>
+</body>
+
+</html>
