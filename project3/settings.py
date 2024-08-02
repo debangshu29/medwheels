@@ -140,3 +140,4 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'whyusernametaken01@gmail.com'  # Your Gmail email address
 EMAIL_HOST_PASSWORD = 'mbjl lxtb okpp hezk'  # Your Gmail password or an App Password
+
