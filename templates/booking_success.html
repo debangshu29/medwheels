@@ -138,7 +138,7 @@
         function redirectToRideMap() {
             setTimeout(function () {
                 window.location.href = "{% url 'ride_map' ride_id=ride_id %}"; // Replace '/ride-map/{{ ride.id }}/' with your actual URL
-            }, 60000); // 60000 milliseconds = 1 min
+            }, 30000); // 30000 milliseconds = 30sec
         }
     </script>
 </body>

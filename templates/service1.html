@@ -216,8 +216,8 @@
             <div class="info">
                 <p >Pickup: {{ pickup }}</p>
                 <p >Drop: {{ drop }}</p>
-                <p>Estimated Time: {{ estimated_time }}</p>
-                <p>Estimated Distance: {{ estimated_distance }}</p>
+                <p><i class="fa-solid fa-clock"></i> <span>Ride Estimated Time: </span> {{ ride_est_time }}</p>
+                <p><i class="fa-solid fa-route"></i> <span>Ride Estimated Distance:</span> {{ ride_est_distance }}</p>
             </div>
             <h1>Choose Ambulance Type</h1>
             <div class="form-group">
@@ -233,10 +233,13 @@
                 <input type="hidden" name="estimated_distance" value="{{ estimated_distance }}">
                 <input type="hidden" name="pickup_lat" value="{{ pickup_lat }}">
                 <input type="hidden" name="pickup_lng" value="{{ pickup_lng }}">
+                <input type="hidden" name="drop_lat" value="{{ drop_lat }}"> <!-- Add this field -->
+                <input type="hidden" name="drop_lng" value="{{ drop_lng }}"> <!-- Add this field -->
                 <input type="hidden" name="ambulance_type" id="ambulance_type">
                 <input type="hidden" name="fare" id="fare">
                 <button type="submit" id="submitButton" style="display: none;">Request</button>
             </form>
+
         </div>
 
         <div class="hero-right">

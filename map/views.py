@@ -23,12 +23,13 @@ from django.conf import settings
 import uuid
 from django.contrib.auth import get_user_model
 from django.views.decorators.csrf import csrf_exempt
+import logging
 User = get_user_model()
 
 
 
 
-
+logger = logging.getLogger(__name__)
 def ride_map(request, ride_id):
     try:
         # Retrieve the ride object based on the ride ID
@@ -55,13 +56,58 @@ def ride_map(request, ride_id):
             try:
                 driver_location = DriverLocation.objects.get(driver=ride.driver.user)
             except DriverLocation.DoesNotExist:
-                pass
+                driver_location = None
 
             driver_name = f"{ride.driver.user.first_name} {ride.driver.user.last_name}"
             phone_number = ride.driver.user.username
             license_number = ride.driver.license_number
             number_plate = ride.driver.number_plate
             ambulance_type = ride.driver.ambulance_type
+
+        # Ensure latitude and longitude values are not None
+        if driver_location is None or driver_location.latitude is None or driver_location.longitude is None:
+            logger.error("Driver location or coordinates are missing")
+            return HttpResponseBadRequest("Driver location or coordinates are missing")
+
+        if pickup_location[0] is None or pickup_location[1] is None:
+            logger.error("Pickup location coordinates are missing")
+            return HttpResponseBadRequest("Pickup location coordinates are missing")
+
+        # Log the retrieved values for debugging
+        logger.debug(f"Driver Latitude: {driver_location.latitude}, Driver Longitude: {driver_location.longitude}")
+        logger.debug(f"Pickup Latitude: {pickup_location[0]}, Pickup Longitude: {pickup_location[1]}")
+
+        # Convert coordinates to float and calculate route from driver to pickup
+        try:
+            driver_latitude = float(driver_location.latitude)
+            driver_longitude = float(driver_location.longitude)
+            pickup_latitude = float(pickup_location[0])
+            pickup_longitude = float(pickup_location[1])
+        except TypeError as e:
+            logger.error(f"Error converting coordinates to float: {e}")
+            return HttpResponseBadRequest("Invalid coordinates")
+
+        driver_est_time, driver_est_distance = calculate_route(
+            (driver_latitude, driver_longitude),
+            (pickup_latitude, pickup_longitude)
+        )
+
+        # Calculate the estimated time and distance for the ride from pickup to drop-off
+        if ride.drop_latitude is None or ride.drop_longitude is None:
+            logger.error("Drop location coordinates are missing")
+            return HttpResponseBadRequest("Drop location coordinates are missing")
+
+        try:
+            drop_latitude = float(ride.drop_latitude)
+            drop_longitude = float(ride.drop_longitude)
+        except TypeError as e:
+            logger.error(f"Error converting drop coordinates to float: {e}")
+            return HttpResponseBadRequest("Invalid drop coordinates")
+
+        ride_est_time, ride_est_distance = calculate_route(
+            (pickup_latitude, pickup_longitude),
+            (drop_latitude, drop_longitude)
+        )
 
         # Pass necessary data to the template
         context = {
@@ -70,15 +116,17 @@ def ride_map(request, ride_id):
             'license_number': license_number,
             'number_plate': number_plate,
             'ambulance_type': ambulance_type,
-            'driver_latitude': driver_location.latitude if driver_location else None,
-            'driver_longitude': driver_location.longitude if driver_location else None,
-            'pickup_latitude': pickup_location[0],
-            'pickup_longitude': pickup_location[1],
+            'driver_latitude': driver_latitude,
+            'driver_longitude': driver_longitude,
+            'pickup_latitude': pickup_latitude,
+            'pickup_longitude': pickup_longitude,
             'pickup': ride.pickup,
             'drop': ride.drop,
-            'estimated_time': ride.estimated_time,
-            'estimated_distance': ride.estimated_distance,
+            'estimated_time': ride_est_time,
+            'estimated_distance': ride_est_distance,
             'fare': ride.fare,  # Include the fare in the context
+            'driver_est_time': driver_est_time,
+            'driver_est_distance': driver_est_distance
         }
 
         return render(request, 'ride_map.html', context)
@@ -86,6 +134,9 @@ def ride_map(request, ride_id):
         # If the ride is not confirmed, display a message and redirect
         messages.error(request, 'Ride is not confirmed yet.')
         return render(request, 'ride_not_confirmed.html')
+
+
+
 
 def ride_not_confirmed(request):
     return render(request, 'ride_not_confirmed.html')
@@ -242,16 +293,29 @@ def ride_view(request):
                     min_distance = shortest_path[driver_node]
                     nearest_driver = driver
 
-            # Use the correct function for distance and time calculation
-            estimated_time, estimated_distance = calculate_route((nearest_driver.latitude, nearest_driver.longitude), (pickup_lat, pickup_lng))
-            fare_medbasic = calculate_fare(float(estimated_distance.split()[0]), 'MedBasic')
-            fare_medpro = calculate_fare(float(estimated_distance.split()[0]), 'MedPro')
+            # Calculate the estimated time and distance for the driver to reach the pickup location
+            driver_est_time, driver_est_distance = calculate_route(
+                (nearest_driver.latitude, nearest_driver.longitude),
+                (pickup_lat, pickup_lng)
+            )
+
+            # Calculate the estimated time and distance for the ride from pickup to drop-off
+            ride_est_time, ride_est_distance = calculate_route(
+                (pickup_lat, pickup_lng),
+                (drop_lat, drop_lng)
+            )
+
+            # Calculate fares
+            fare_medbasic = calculate_fare(float(ride_est_distance.split()[0]), 'MedBasic')
+            fare_medpro = calculate_fare(float(ride_est_distance.split()[0]), 'MedPro')
 
             context = {
                 'pickup': pickup_address,
                 'drop': drop_address,
-                'estimated_time': estimated_time,
-                'estimated_distance': estimated_distance,
+                'driver_est_time': driver_est_time,
+                'driver_est_distance': driver_est_distance,
+                'ride_est_time': ride_est_time,
+                'ride_est_distance': ride_est_distance,
                 'pickup_lat': pickup_lat,
                 'pickup_lng': pickup_lng,
                 'drop_lat': drop_lat,
@@ -268,22 +332,20 @@ def ride_view(request):
     return render(request, 'service1.html')
 
 
-def calculate_route(driver_location, pickup_location):
-    # Unpack latitude and longitude from the driver_location tuple
-    driver_lat, driver_lng = driver_location
-
-    # Unpack pickup latitude and longitude from the pickup_location tuple
-    pickup_lat, pickup_lng = pickup_location
+def calculate_route(start_location, end_location):
+    # Unpack latitude and longitude from the start and end location tuples
+    start_lat, start_lng = start_location
+    end_lat, end_lng = end_location
 
     # Format coordinates without parentheses
-    pickup_str = f"{pickup_lat},{pickup_lng}"
-    driver_str = f"{driver_lat},{driver_lng}"
+    start_str = f"{start_lat},{start_lng}"
+    end_str = f"{end_lat},{end_lng}"
 
     # Replace 'YOUR_API_KEY' with your actual Google Maps API key
-    api_key = 'AIzaSyAvSl8hKmXkz9tE8ctzuXtRQz0Y2lUFknI'
+    api_key = settings.GOOGLE_MAPS_API_KEY
 
     # Construct the API request URL
-    url = f'https://maps.googleapis.com/maps/api/distancematrix/json?origins={pickup_str}&destinations={driver_str}&key={api_key}'
+    url = f'https://maps.googleapis.com/maps/api/distancematrix/json?origins={start_str}&destinations={end_str}&key={api_key}'
 
     print("API Request URL:", url)  # Print API request URL for debugging
 
@@ -305,16 +367,21 @@ def calculate_route(driver_location, pickup_location):
                     if element['status'] == 'OK':
                         estimated_time = element.get('duration', {}).get('text')
                         estimated_distance = element.get('distance', {}).get('text')
+                        print(f"Estimated Time: {estimated_time}, Estimated Distance: {estimated_distance}")
                     else:
+                        print("Error in element status:", element['status'])
                         estimated_time = "Not Available"
                         estimated_distance = "Not Available"
                 else:
+                    print("No elements found")
                     estimated_time = "Not Available"
                     estimated_distance = "Not Available"
             else:
+                print("No rows found")
                 estimated_time = "Not Available"
                 estimated_distance = "Not Available"
         else:
+            print("Response status not OK:", data['status'])
             estimated_time = "Not Available"
             estimated_distance = "Not Available"
 
@@ -333,19 +400,23 @@ def calculate_route(driver_location, pickup_location):
 @transaction.atomic
 def save_booking_view(request):
     if request.method == 'POST':
-        required_fields = ['pickup', 'drop', 'estimated_time', 'estimated_distance', 'pickup_lat', 'pickup_lng', 'ambulance_type', 'fare']
+        required_fields = [
+            'pickup', 'drop', 'estimated_time', 'estimated_distance', 'pickup_lat',
+            'pickup_lng', 'drop_lat', 'drop_lng', 'ambulance_type', 'fare'
+        ]
         if not all(field in request.POST for field in required_fields):
             return HttpResponseBadRequest("Required fields are missing in the request.")
 
         pickup = request.POST['pickup']
         drop = request.POST['drop']
-        estimated_time = request.POST['estimated_time']
-        estimated_distance = request.POST['estimated_distance']
         pickup_lat = Decimal(request.POST['pickup_lat'])
         pickup_lng = Decimal(request.POST['pickup_lng'])
+        drop_lat = Decimal(request.POST['drop_lat'])
+        drop_lng = Decimal(request.POST['drop_lng'])
         ambulance_type = request.POST['ambulance_type']
         fare = Decimal(request.POST['fare'])
 
+        # Get driver locations with the specified ambulance type
         driver_locations = DriverLocation.objects.filter(driver__driver_profile__ambulance_type=ambulance_type)
 
         if not driver_locations:
@@ -372,15 +443,20 @@ def save_booking_view(request):
         if nearest_driver:
             driver = nearest_driver.driver.driver_profile
 
+            # Calculate estimated time and distance for the ride from pickup to drop-off
+            ride_est_time, ride_est_distance = calculate_route((pickup_lat, pickup_lng), (drop_lat, drop_lng))
+
             ride = Ride.objects.create(
                 driver=driver,
                 user=request.user,
                 pickup=pickup,
                 drop=drop,
-                estimated_time=estimated_time,
-                estimated_distance=estimated_distance,
+                estimated_time=ride_est_time,  # Save estimated time
+                estimated_distance=ride_est_distance,  # Save estimated distance
                 pickup_latitude=pickup_lat,
                 pickup_longitude=pickup_lng,
+                drop_latitude=drop_lat,  # Ensure drop coordinates are saved
+                drop_longitude=drop_lng,  # Ensure drop coordinates are saved
                 ambulance_type=ambulance_type,
                 fare=fare,
                 is_confirmed=False
@@ -397,10 +473,12 @@ def save_booking_view(request):
                 'ride_id': ride.id,
                 'pickup': pickup,
                 'drop': drop,
-                'estimated_time': estimated_time,
-                'estimated_distance': estimated_distance,
+                'estimated_time': ride_est_time,
+                'estimated_distance': ride_est_distance,
                 'pickup_latitude': pickup_lat,
                 'pickup_longitude': pickup_lng,
+                'drop_latitude': drop_lat,
+                'drop_longitude': drop_lng,
                 'fare': fare,
                 'ambulance_type': ambulance_type,
                 'driver_latitude': nearest_driver_node[0],
@@ -415,6 +493,8 @@ def save_booking_view(request):
             return redirect('service1')
 
     return HttpResponseBadRequest("Invalid request method.")
+
+
 def booking_success(request):
     # Check if the booking request is sent and confirmed
     if request.session.get('ride_confirmed'):
