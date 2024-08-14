@@ -11,6 +11,21 @@
 </head>
 <body>
     <h1>Map with Pickup and Drop Locations</h1>
+    <div>
+        <div class="hero-form">
+    <h2>Drop-off Details</h2>
+    <p><i class="fa-solid fa-circle-dot"></i> <span>Pickup Location:</span> {{ pickup_location }}</p>
+    <p><i class="fa-solid fa-location-dot"></i> <span>Drop-off Location:</span> {{ drop_location }}</p>
+
+    <!-- Google Maps Navigation Button (Visible only to the driver) -->
+    {% if request.user.is_driver %}
+    <a href="{{ google_maps_url }}" target="_blank">
+        <button type="button">Start Navigation to Drop-off</button>
+    </a>
+    {% endif %}
+</div>
+
+    </div>
     <div id="map"></div>
 
     <script>

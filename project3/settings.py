@@ -16,7 +16,7 @@ DEBUG = config('DEBUG', default=False, cast=bool)
 ALLOWED_HOSTS = ['127.0.0.1']
 
 GOOGLE_MAPS_API_KEY = config('GOOGLE_MAPS_API_KEY')
-
+AUTH_USER_MODEL = 'verify.CustomUser'
 # Application definition
 INSTALLED_APPS = [
     'django.contrib.admin',

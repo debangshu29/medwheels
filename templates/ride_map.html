@@ -2,7 +2,8 @@
 <html>
 <head>
     <title>Ride Map</title>
-     <style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
         * {
             margin: 0;
             padding: 0;
@@ -22,22 +23,33 @@
             padding-left: 20px;
             padding-right: 20px;
             width: 100%;
-            background: rgb(250 236 255);
-            /* margin-top: 5px; */
-            /* padding-top: 20px; */
+            background: rgb(250, 236, 255);
         }
 
         .hero-form {
-            background: rgb(250 236 255);
+            padding: 5px 5px;
+        }
+
+        .info {
             border-radius: 15px;
-            border: 1px solid rgb(255, 97, 40);
-            padding: 20px 5px;
+            padding-left: 12px;
+            padding-right: 12px;
+        }
+
+        .info p {
+            font-weight: 500;
+            padding: 6px;
+            width: 96%;
+            border-radius: 8px;
+        }
+
+        .info p span {
+            font-weight: 700;
         }
 
         .hero-left {
             border-radius: 12px;
-            /* padding: 198px 20px; */
-            margin-top: 10px;
+            margin-top: 6px;
         }
 
         .hero-right {
@@ -47,7 +59,6 @@
         .hero-right #map {
             height: 95vh;
             width: 100%;
-<!--            border: 1px solid rgb(255, 97, 40);-->
         }
 
         @media screen and (min-width: 768px) {
@@ -56,49 +67,45 @@
             }
 
             .hero-left .hero-form {
-                /* width: 380px; */
                 width: 90%;
                 margin-top: 2px;
             }
-
         }
 
         .hero-left .hero-form h2 {
             font-size: 26px;
-            font-weight: 500;
+            font-weight: 700;
             padding-left: 10px;
             margin: 10px 0;
             color: rgb(255, 97, 40);
         }
+
         .hero-left .hero-form p {
-            font-size: 18px;
+            font-size: 17px;
             padding-left: 10px;
-            margin: 8px 0;
+            margin: 2px 0;
         }
     </style>
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAvSl8hKmXkz9tE8ctzuXtRQz0Y2lUFknI&callback=initMap" async defer></script>
     <script>
         function initMap() {
-            // Driver's location
             var driverLatLng = {lat: {{ driver_latitude }}, lng: {{ driver_longitude }}};
-            // Pickup location
             var pickupLatLng = {lat: {{ pickup_latitude }}, lng: {{ pickup_longitude }}};
 
-            // Create a map object and specify the DOM element for display
             var map = new google.maps.Map(document.getElementById('map'), {
                 center: driverLatLng,
                 zoom: 10
             });
+
             var carIcon = {
                 url: "/static/car.png",
-                scaledSize: new google.maps.Size(50, 36) // Set the size of the marker
+                scaledSize: new google.maps.Size(50, 36)
             };
             var manIcon = {
-                url: "/static/man.png",
+                url: "/static/man1.png",
                 scaledSize: new google.maps.Size(60, 50)
-
             };
-            // Create markers for driver and pickup
+
             var driverMarker = new google.maps.Marker({
                 position: driverLatLng,
                 map: map,
@@ -112,21 +119,18 @@
                 title: 'Pickup Location'
             });
 
-            // Create a directions service to get route between driver and pickup
             var directionsService = new google.maps.DirectionsService;
             var directionsDisplay = new google.maps.DirectionsRenderer({
-                suppressMarkers: true  // Add this line to suppress the default markers
+                suppressMarkers: true
             });
             directionsDisplay.setMap(map);
 
-            // Request route between driver and pickup
             directionsService.route({
                 origin: driverLatLng,
                 destination: pickupLatLng,
                 travelMode: 'DRIVING'
             }, function(response, status) {
                 if (status === 'OK') {
-                    // Display the route on the map
                     directionsDisplay.setDirections(response);
                 } else {
                     window.alert('Directions request failed due to ' + status);
@@ -134,35 +138,58 @@
             });
         }
 
-        // Initialize the map when the page loads
         initMap();
+
+        function checkRideStatus() {
+            fetch("{% url 'check_verification_status' ride_id=ride_id %}")
+                .then(response => response.json())
+                .then(data => {
+                    if (data.is_verified) {
+                        window.location.href = "{% url 'display_map' ride_id=ride_id %}";
+                    }
+                })
+                .catch(error => console.error('Error checking verification status:', error));
+        }
+
+        setInterval(checkRideStatus, 5000);
     </script>
 </head>
 <body>
     <section class="hero">
-       <div class="hero-left">
+        <div class="hero-left">
             <div class="hero-form">
                 <h2>Booking Details</h2>
-                <p><i class="fa-solid fa-circle-dot"></i> <span>Pickup:</span> {{ pickup }}</p>
-                <p><i class="fa-solid fa-location-dot"></i> <span>Drop:</span> {{ drop }}</p>
-                <p><i class="fa-solid fa-clock"></i> <span>Estimated Time: </span> {{ estimated_time }}</p>
-                <p><i class="fa-solid fa-route"></i> <span>Estimated Distance:</span> {{ estimated_distance }}</p>
-                <p><i class="fa-solid fa-dollar-sign"></i> <span>Fare:</span> ₹{{ fare }}</p>
-
-                <p>Driver Name: <span>{{ driver_name|title }}</span></p>
-                <p>Phone Number: <span>{{ phone_number }}</span></p>
-                <p>License Number: <span>{{ license_number }}</span></p>
-                <p>Number Plate: <span>{{ number_plate }}</span></p>
-                <p>Ambulance Type: <span>{{ ambulance_type }}</span></p>
-                <p>Driver's Estimated Time to Pickup: <span>{{ driver_est_time }}</span></p>
-                <p>Driver's Estimated Distance to Pickup: <span>{{ driver_est_distance }}</span></p>
+                <div class="info">
+                    <p><span><i class="fa-solid fa-circle-dot"></i> Pickup:</span> {{ pickup }}</p>
+                    <p><span><i class="fa-solid fa-location-dot"></i> Drop:</span> {{ drop }}</p>
+                    <p><span><i class="fa-solid fa-clock"></i> Estimated Time:</span> {{ estimated_time }}</p>
+                    <p><span><i class="fa-solid fa-route"></i> Estimated Distance:</span> {{ estimated_distance }}</p>
+                    <p><span><i class="fa-solid fa-dollar-sign"></i> Fare:</span> ₹{{ fare }}</p>
+                </div>
             </div>
+            <div class="hero-form">
+                <h2>Driver Details</h2>
+                <div class="info">
+                    <p><span>Driver Name:</span> {{ driver_name|title }}</p>
+                    <p><span>Phone Number:</span> {{ phone_number }}</p>
+                    <p><span>License Number:</span> {{ license_number }}</p>
+                    <p><span>Number Plate:</span> {{ number_plate }}</p>
+                    <p><span>Ambulance Type:</span> {{ ambulance_type }}</p>
+                    <p><span>Driver's Estimated Time to Pickup:</span> {{ driver_est_time }}</p>
+                    <p><span>Driver's Estimated Distance to Pickup:</span> {{ driver_est_distance }}</p>
+                </div>
+            </div>
+                <!-- Google Maps Navigation Button (Visible only to the driver) -->
+                {% if request.user.is_driver %}
+                <a href="{{ google_maps_url }}" target="_blank">
+                    <button type="button">Start Navigation</button>
+                </a>
+                {% endif %}
         </div>
 
         <div class="hero-right">
-            <div id="map" ></div>
+            <div id="map"></div>
         </div>
     </section>
-<!--    <div id="map" style="height: 400px; width: 100%;"></div>-->
 </body>
 </html>

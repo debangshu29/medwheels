@@ -20,6 +20,7 @@ urlpatterns = [
     path('generate-and-send-code/<int:ride_id>/', views.generate_and_send_code, name='generate_and_send_code'),
     path('display-map/<int:ride_id>/', views.display_map, name='display_map'),
     path('driver_reject/', views.driver_reject, name='driver_reject'),
+    path('ride/<int:ride_id>/status/', views.check_verification_status, name='check_verification_status'),
 
 
 

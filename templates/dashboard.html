@@ -88,7 +88,7 @@
             font-size: 20px;
             transition: 0.3s ease;
         }
-        
+
         #interface {
             width: calc(100% - 300px);
             margin-left: 300px;
@@ -305,8 +305,18 @@
         <p>Number Plate: <span id="number-plate">{{ number_plate }}</span></p>
         <p>Ambulance Type: <span id="ambulance-type">{{ ambulance_type }}</span></p>
 
+        <!-- Verification Code Form -->
+        <form method="POST" action="{% url 'verify_code' ride_id %}">
+            {% csrf_token %}
+            <label for="code">Enter Verification Code:</label>
+            <input type="text" id="code" name="code" required>
+            <button type="submit">Verify Code</button>
+        </form>
+
+
     </div>
 </div>
+
 
 
 

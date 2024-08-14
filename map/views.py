@@ -24,6 +24,7 @@ import uuid
 from django.contrib.auth import get_user_model
 from django.views.decorators.csrf import csrf_exempt
 import logging
+from urllib.parse import urlencode
 User = get_user_model()
 
 
@@ -40,10 +41,16 @@ def ride_map(request, ride_id):
 
     # Check if the ride is confirmed
     if ride.is_confirmed:
-        # Retrieve necessary data for rendering the ride map
+        # Check if the ride has been verified (code entered)
+        if ride.is_verified:  # Assuming you have an `is_verified` field
+            # Redirect to drop map instead of showing the ride map
+            return redirect('display_map', ride_id=ride.id)
+
+        # Otherwise, continue with the existing logic for the ride map
+        # (This logic remains the same)
+
         pickup_location = (ride.pickup_latitude, ride.pickup_longitude)
 
-        # Initialize driver details to None
         driver_name = None
         phone_number = None
         license_number = None
@@ -51,7 +58,6 @@ def ride_map(request, ride_id):
         ambulance_type = None
         driver_location = None
 
-        # Check if the ride has an associated driver
         if ride.driver:
             try:
                 driver_location = DriverLocation.objects.get(driver=ride.driver.user)
@@ -64,27 +70,18 @@ def ride_map(request, ride_id):
             number_plate = ride.driver.number_plate
             ambulance_type = ride.driver.ambulance_type
 
-        # Ensure latitude and longitude values are not None
         if driver_location is None or driver_location.latitude is None or driver_location.longitude is None:
-            logger.error("Driver location or coordinates are missing")
             return HttpResponseBadRequest("Driver location or coordinates are missing")
 
         if pickup_location[0] is None or pickup_location[1] is None:
-            logger.error("Pickup location coordinates are missing")
             return HttpResponseBadRequest("Pickup location coordinates are missing")
 
-        # Log the retrieved values for debugging
-        logger.debug(f"Driver Latitude: {driver_location.latitude}, Driver Longitude: {driver_location.longitude}")
-        logger.debug(f"Pickup Latitude: {pickup_location[0]}, Pickup Longitude: {pickup_location[1]}")
-
-        # Convert coordinates to float and calculate route from driver to pickup
         try:
             driver_latitude = float(driver_location.latitude)
             driver_longitude = float(driver_location.longitude)
             pickup_latitude = float(pickup_location[0])
             pickup_longitude = float(pickup_location[1])
-        except TypeError as e:
-            logger.error(f"Error converting coordinates to float: {e}")
+        except TypeError:
             return HttpResponseBadRequest("Invalid coordinates")
 
         driver_est_time, driver_est_distance = calculate_route(
@@ -92,16 +89,13 @@ def ride_map(request, ride_id):
             (pickup_latitude, pickup_longitude)
         )
 
-        # Calculate the estimated time and distance for the ride from pickup to drop-off
         if ride.drop_latitude is None or ride.drop_longitude is None:
-            logger.error("Drop location coordinates are missing")
             return HttpResponseBadRequest("Drop location coordinates are missing")
 
         try:
             drop_latitude = float(ride.drop_latitude)
             drop_longitude = float(ride.drop_longitude)
-        except TypeError as e:
-            logger.error(f"Error converting drop coordinates to float: {e}")
+        except TypeError:
             return HttpResponseBadRequest("Invalid drop coordinates")
 
         ride_est_time, ride_est_distance = calculate_route(
@@ -109,7 +103,6 @@ def ride_map(request, ride_id):
             (drop_latitude, drop_longitude)
         )
 
-        # Pass necessary data to the template
         context = {
             'driver_name': driver_name,
             'phone_number': phone_number,
@@ -126,14 +119,15 @@ def ride_map(request, ride_id):
             'estimated_distance': ride_est_distance,
             'fare': ride.fare,  # Include the fare in the context
             'driver_est_time': driver_est_time,
-            'driver_est_distance': driver_est_distance
+            'driver_est_distance': driver_est_distance,
+            'ride_id': ride_id
         }
 
         return render(request, 'ride_map.html', context)
     else:
-        # If the ride is not confirmed, display a message and redirect
         messages.error(request, 'Ride is not confirmed yet.')
         return render(request, 'ride_not_confirmed.html')
+
 
 
 
@@ -142,21 +136,29 @@ def ride_not_confirmed(request):
     return render(request, 'ride_not_confirmed.html')
 
 
+from django.shortcuts import get_object_or_404
+
 def dashboard(request):
     # Assuming the authenticated user is a driver
     if request.user.is_authenticated and request.user.is_driver:
         driver = request.user.driver_profile
+        # Assuming you have logic to determine the current ride for the driver
+        ride = Ride.objects.filter(driver=driver, is_confirmed=True).last()  # Example to get the last confirmed ride
+
         context = {
             'driver_name': driver.user.first_name,
             'phone_number': driver.user.username,
             'license_number': driver.license_number,
             'number_plate': driver.number_plate,
-            'ambulance_type': driver.ambulance_type
+            'ambulance_type': driver.ambulance_type,
+            'ride_id': ride.id if ride else None  # Pass ride_id to the template
         }
         return render(request, 'dashboard.html', context)
     else:
         # Redirect to login or handle unauthorized access
         return render(request, 'unauthorized.html')
+
+
 
 
 @csrf_exempt
@@ -595,23 +597,24 @@ def reject_ride_by_email(request):
 
 def verify_code(request, ride_id):
     if request.method == 'POST':
-        # Get the code entered by the driver
         entered_code = request.POST.get('code')
+        ride = get_object_or_404(Ride, id=ride_id)
 
-        # Retrieve the ride
-        ride = Ride.objects.get(id=ride_id)
-
-        # Check if the entered code matches the one associated with the ride
         if entered_code == ride.code:
-            # If the code is correct, display the map
-            return redirect('display_map', ride_id=ride_id)
-        else:
-            # If the code is incorrect, display an error message
-            messages.error(request, 'Invalid code. Please try again.')
-            return redirect('dashboard')  # Redirect back to the dashboard
-    else:
+            # Mark the ride as verified
+            ride.is_verified = True
+            ride.save()
 
+            return redirect('display_map', ride_id=ride.id)
+        else:
+            messages.error(request, 'Invalid code. Please try again.')
+            return redirect('dashboard')
+    else:
         return HttpResponseBadRequest("Invalid request method.")
+
+def check_verification_status(request, ride_id):
+    ride = get_object_or_404(Ride, id=ride_id)
+    return JsonResponse({'is_verified': ride.is_verified})
 
 def generate_and_send_code(request, ride_id):
     try:
@@ -642,17 +645,23 @@ def generate_and_send_code(request, ride_id):
 
 def display_map(request, ride_id):
     # Retrieve the ride and necessary details for displaying the map
-    ride = Ride.objects.get(id=ride_id)
+    ride = get_object_or_404(Ride, id=ride_id)
     pickup_location = (ride.pickup_latitude, ride.pickup_longitude)
     drop_location = (ride.drop_latitude, ride.drop_longitude)
+
+    # Construct the Google Maps URL for navigation from pickup to drop-off
+    google_maps_url = f"https://www.google.com/maps/dir/?api=1&origin={pickup_location[0]},{pickup_location[1]}&destination={drop_location[0]},{drop_location[1]}&travelmode=driving"
 
     # Pass the necessary data to the template for displaying the map
     context = {
         'pickup_location': pickup_location,
         'drop_location': drop_location,
-        # Other necessary data for displaying the map
+        'google_maps_url': google_maps_url,
+        'ride': ride,  # Include ride object to check the user type in the template
     }
+
     return render(request, 'drop_map.html', context)
+
 
 def generate_unique_4_digit_code():
     """
