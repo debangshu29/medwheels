@@ -258,6 +258,7 @@ def dijkstra_algorithm(graph, start_node):
         unvisited_nodes.remove(current_min_node)
 
     return previous_nodes, shortest_path
+
 def ride_view(request):
     if request.method == 'POST':
         pickup_address = request.POST.get('pickup')
@@ -658,6 +659,7 @@ def display_map(request, ride_id):
         'drop_location': drop_location,
         'google_maps_url': google_maps_url,
         'ride': ride,  # Include ride object to check the user type in the template
+        'ride_id': ride_id,
     }
 
     return render(request, 'drop_map.html', context)
@@ -705,4 +707,21 @@ def send_code_to_user(ride_id, code):
     send_mail(subject, message, sender, [user_email])
 
     print("Email sent successfully.")
+
+
+
+def get_driver_location(request, ride_id):
+    # Ensure ride exists
+    ride = get_object_or_404(Ride, id=ride_id)
+
+    # Ensure there's a driver assigned and that the location is available
+    try:
+        driver_location = DriverLocation.objects.get(driver=ride.driver.user)
+        data = {
+            'latitude': driver_location.latitude,
+            'longitude': driver_location.longitude
+        }
+        return JsonResponse(data)
+    except DriverLocation.DoesNotExist:
+        return JsonResponse({'error': 'Driver location not found'}, status=404)
 

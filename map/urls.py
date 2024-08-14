@@ -21,6 +21,9 @@ urlpatterns = [
     path('display-map/<int:ride_id>/', views.display_map, name='display_map'),
     path('driver_reject/', views.driver_reject, name='driver_reject'),
     path('ride/<int:ride_id>/status/', views.check_verification_status, name='check_verification_status'),
+    # path('ride/<int:ride_id>/driver-location/', views.get_driver_location, name='get_driver_location'),
+    path('get_driver_location/<int:ride_id>/', views.get_driver_location, name='get_driver_location'),
+
 
 
 
