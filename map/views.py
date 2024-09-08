@@ -5,7 +5,7 @@ from django.db.models import F, ExpressionWrapper, FloatField
 from django.urls import reverse
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
-from .models import DriverLocation, Ride
+from .models import DriverLocation, Ride, Feedback
 import json
 import requests
 from django.db.models import Min, ExpressionWrapper
@@ -25,50 +25,63 @@ from django.contrib.auth import get_user_model
 from django.views.decorators.csrf import csrf_exempt
 import logging
 from urllib.parse import urlencode
+from .models import DriverRideLocationHistory
+from django.views.decorators.http import require_GET
+from django.db.models import Avg
+from django.utils import timezone
+from django.db.models import Sum
+from datetime import timedelta
+from .models import Hospital
+from django.core.serializers import serialize
+from geopy.distance import geodesic
 User = get_user_model()
 
 
+def main_page(request):
+    # Logic for the main page
+    return render(request, 'main_page.html')
 
+def drive_page(request):
+
+    return render(request, 'drive.html')
+
+def business(request):
+
+    return render(request, 'business.html')
+
+def about(request):
+
+    return render(request, 'about.html')
 
 logger = logging.getLogger(__name__)
 def ride_map(request, ride_id):
     try:
-        # Retrieve the ride object based on the ride ID
         ride = get_object_or_404(Ride, id=ride_id)
     except Ride.DoesNotExist:
-        # If the ride doesn't exist, return a 404 error page
         return render(request, 'ride_not_confirmed.html')
 
-    # Check if the ride is confirmed
     if ride.is_confirmed:
-        # Check if the ride has been verified (code entered)
-        if ride.is_verified:  # Assuming you have an `is_verified` field
-            # Redirect to drop map instead of showing the ride map
-            return redirect('display_map', ride_id=ride.id)
-
-        # Otherwise, continue with the existing logic for the ride map
-        # (This logic remains the same)
-
         pickup_location = (ride.pickup_latitude, ride.pickup_longitude)
-
-        driver_name = None
-        phone_number = None
-        license_number = None
-        number_plate = None
-        ambulance_type = None
-        driver_location = None
+        driver_name = phone_number = license_number = number_plate = ambulance_type = driver_location = None
 
         if ride.driver:
             try:
-                driver_location = DriverLocation.objects.get(driver=ride.driver.user)
+                driver_location = DriverLocation.objects.get(driver=ride.driver)
             except DriverLocation.DoesNotExist:
                 driver_location = None
 
-            driver_name = f"{ride.driver.user.first_name} {ride.driver.user.last_name}"
+            driver_name = f"{ride.driver.user.first_name} {ride.driver.user.last_name}".title()
             phone_number = ride.driver.user.username
             license_number = ride.driver.license_number
             number_plate = ride.driver.number_plate
             ambulance_type = ride.driver.ambulance_type
+            car_model = ride.driver.car_name
+            average_rating_tuple = ride.driver.average_rating,
+            average_rating = average_rating_tuple[0]
+
+
+
+
 
         if driver_location is None or driver_location.latitude is None or driver_location.longitude is None:
             return HttpResponseBadRequest("Driver location or coordinates are missing")
@@ -76,51 +89,61 @@ def ride_map(request, ride_id):
         if pickup_location[0] is None or pickup_location[1] is None:
             return HttpResponseBadRequest("Pickup location coordinates are missing")
 
-        try:
-            driver_latitude = float(driver_location.latitude)
-            driver_longitude = float(driver_location.longitude)
-            pickup_latitude = float(pickup_location[0])
-            pickup_longitude = float(pickup_location[1])
-        except TypeError:
-            return HttpResponseBadRequest("Invalid coordinates")
+        driver_latitude = float(driver_location.latitude)
+        driver_longitude = float(driver_location.longitude)
+        pickup_latitude = float(pickup_location[0])
+        pickup_longitude = float(pickup_location[1])
 
+        # Calculate the estimated time and distance for the ride from pickup to drop-off
+        ride_est_time, ride_est_distance = calculate_route(
+            (pickup_latitude, pickup_longitude),
+            (ride.drop_latitude, ride.drop_longitude)
+        )
+        # Mapping internal ambulance type values to display names
+        ambulance_type_display_map = {
+            'med_bls': 'Med BLS',
+            'med_als': 'Med ALS',
+            'med_icu': 'Med ICU',
+        }
+        # Get the display name or use the original if not found in the map
+        ambulance_type_display = ambulance_type_display_map.get(ambulance_type, ambulance_type)
+
+        # Calculate fare using the distance and ambulance type
+        fare = calculate_fare(float(ride_est_distance.split()[0]), ambulance_type)
+
+        # Calculate the driver's estimated time and distance to the pickup location
         driver_est_time, driver_est_distance = calculate_route(
             (driver_latitude, driver_longitude),
             (pickup_latitude, pickup_longitude)
         )
 
-        if ride.drop_latitude is None or ride.drop_longitude is None:
-            return HttpResponseBadRequest("Drop location coordinates are missing")
-
-        try:
-            drop_latitude = float(ride.drop_latitude)
-            drop_longitude = float(ride.drop_longitude)
-        except TypeError:
-            return HttpResponseBadRequest("Invalid drop coordinates")
-
-        ride_est_time, ride_est_distance = calculate_route(
-            (pickup_latitude, pickup_longitude),
-            (drop_latitude, drop_longitude)
-        )
+        google_maps_url = f"https://www.google.com/maps/dir/?api=1&" + urlencode({
+            'origin': f"{driver_latitude},{driver_longitude}",
+            'destination': f"{pickup_latitude},{pickup_longitude}",
+            'travelmode': 'driving'
+        })
 
         context = {
-            'driver_name': driver_name,
-            'phone_number': phone_number,
-            'license_number': license_number,
-            'number_plate': number_plate,
-            'ambulance_type': ambulance_type,
+            'ride_id': ride_id,
             'driver_latitude': driver_latitude,
             'driver_longitude': driver_longitude,
             'pickup_latitude': pickup_latitude,
             'pickup_longitude': pickup_longitude,
+            'driver_name': driver_name,
+            'phone_number': phone_number,
+            'license_number': license_number,
+            'number_plate': number_plate,
+            'ambulance_type': ambulance_type_display,
             'pickup': ride.pickup,
             'drop': ride.drop,
-            'estimated_time': ride_est_time,
-            'estimated_distance': ride_est_distance,
-            'fare': ride.fare,  # Include the fare in the context
             'driver_est_time': driver_est_time,
             'driver_est_distance': driver_est_distance,
-            'ride_id': ride_id
+            'google_maps_url': google_maps_url,
+            'estimated_time': ride_est_time,
+            'estimated_distance': ride_est_distance,
+            'fare': fare,
+            'car_model': car_model,  # Add car name to context
+            'average_rating': float(average_rating),
         }
 
         return render(request, 'ride_map.html', context)
@@ -132,31 +155,61 @@ def ride_map(request, ride_id):
 
 
 
+
+
+
 def ride_not_confirmed(request):
     return render(request, 'ride_not_confirmed.html')
 
 
-from django.shortcuts import get_object_or_404
 
+
+@login_required
 def dashboard(request):
-    # Assuming the authenticated user is a driver
-    if request.user.is_authenticated and request.user.is_driver:
+    if hasattr(request.user, 'driver_profile'):
         driver = request.user.driver_profile
-        # Assuming you have logic to determine the current ride for the driver
-        ride = Ride.objects.filter(driver=driver, is_confirmed=True).last()  # Example to get the last confirmed ride
+        ride = Ride.objects.filter(driver=driver, is_confirmed=True).last()  # Get the last confirmed ride
 
+        # Fetch the last 5 rides for the ride history
+        recent_rides = Ride.objects.filter(driver=driver, is_confirmed=True).order_by('-created_at')[:5]
+
+        # Calculate earnings
+        total_earnings = Ride.objects.filter(driver=driver, is_paid=True).aggregate(Sum('fare'))['fare__sum'] or 0
+
+        # Calculate weekly earnings (last 7 days)
+        one_week_ago = timezone.now() - timedelta(days=7)
+        weekly_earnings = Ride.objects.filter(driver=driver, is_paid=True, created_at__gte=one_week_ago).aggregate(Sum('fare'))['fare__sum'] or 0
+
+        # Calculate monthly earnings (last 30 days)
+        one_month_ago = timezone.now() - timedelta(days=30)
+        monthly_earnings = Ride.objects.filter(driver=driver, is_paid=True, created_at__gte=one_month_ago).aggregate(Sum('fare'))['fare__sum'] or 0
+
+        # Prepare the context with required driver details and earnings
         context = {
-            'driver_name': driver.user.first_name,
+            'driver_name': f"{driver.user.first_name} {driver.user.last_name}",
             'phone_number': driver.user.username,
             'license_number': driver.license_number,
-            'number_plate': driver.number_plate,
-            'ambulance_type': driver.ambulance_type,
-            'ride_id': ride.id if ride else None  # Pass ride_id to the template
+            'ambulance_type': driver.get_ambulance_type_display(),
+            'average_rating': driver.average_rating,
+            'ride_id': ride.id if ride else None,
+            'ride': ride,
+            'number_plate': driver.number_plate,  # Add number plate to context
+            'car_name': driver.car_name,  # Add car name to context
+            'profile_image': driver.profile_image.url if driver.profile_image else None,  # Add profile image to context
+            'recent_rides': recent_rides,
+            'total_earnings': total_earnings,
+            'weekly_earnings': weekly_earnings,
+            'monthly_earnings': monthly_earnings,
+            'range': range(1, 6),  # A range from 1 to 5 for star display
+            'no_ride': ride is None,  # Flag to indicate if there's no ride
         }
+
         return render(request, 'dashboard.html', context)
     else:
-        # Redirect to login or handle unauthorized access
-        return render(request, 'unauthorized.html')
+        return redirect('/')  # Redirect to unauthorized page
+
+
+
 
 
 
@@ -170,16 +223,14 @@ def update_location(request):
             longitude = data.get('longitude')
             location_name = data.get('location_name')
 
-            # Validate received data (you may add more validations as per your requirements)
             if latitude is None or longitude is None:
                 return JsonResponse({'error': 'Latitude or longitude missing'}, status=400)
 
-            # Assuming the driver is authenticated, you can get the driver from the request
             driver = request.user  # Assuming the authenticated user is a driver
 
             # Update or create DriverLocation
             driver_location, created = DriverLocation.objects.update_or_create(
-                driver=driver,
+                driver=driver.driver_profile,
                 defaults={
                     'latitude': latitude,
                     'longitude': longitude,
@@ -187,7 +238,6 @@ def update_location(request):
                 }
             )
 
-            # You can return any additional data you want to the frontend
             return JsonResponse({'success': True, 'message': 'Location updated successfully'}, status=200)
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
@@ -207,11 +257,16 @@ def service_view(request):
 
 
 def calculate_fare(distance, ambulance_type):
-    base_fare = 50.0
-    per_km_rate = 10.0
-    if ambulance_type == 'MedPro':
-        base_fare += 20.0  # Additional base fare for MedPro
-        per_km_rate += 5.0  # Additional per km rate for MedPro
+    base_fare = 50.0  # Default base fare for Med BLS
+    per_km_rate = 10.0  # Default per km rate for Med BLS
+
+    if ambulance_type == 'med_als':
+        base_fare += 30.0  # Additional base fare for Med ALS
+        per_km_rate += 10.0  # Additional per km rate for Med ALS
+    elif ambulance_type == 'med_icu':
+        base_fare += 50.0  # Additional base fare for Med ICU
+        per_km_rate += 20.0  # Additional per km rate for Med ICU
+
     return base_fare + (per_km_rate * distance)
 
 def address_to_coordinates(address):
@@ -308,9 +363,10 @@ def ride_view(request):
                 (drop_lat, drop_lng)
             )
 
-            # Calculate fares
-            fare_medbasic = calculate_fare(float(ride_est_distance.split()[0]), 'MedBasic')
-            fare_medpro = calculate_fare(float(ride_est_distance.split()[0]), 'MedPro')
+            ride_distance_km = float(ride_est_distance.split()[0])
+            fare_medbls = calculate_fare(ride_distance_km, 'med_bls')
+            fare_medals = calculate_fare(ride_distance_km, 'med_als')
+            fare_medicu = calculate_fare(ride_distance_km, 'med_icu')
 
             context = {
                 'pickup': pickup_address,
@@ -323,9 +379,10 @@ def ride_view(request):
                 'pickup_lng': pickup_lng,
                 'drop_lat': drop_lat,
                 'drop_lng': drop_lng,
-                'fare_medbasic': fare_medbasic,
-                'fare_medpro': fare_medpro,
-                'nearest_driver': nearest_driver  # Pass the nearest driver to the template
+                'fare_medbls': fare_medbls,
+                'fare_medals': fare_medals,
+                'fare_medicu': fare_medicu,
+                'nearest_drivers': driver_locations  # Pass all nearby drivers to the template
             }
 
             return render(request, 'service1.html', context)
@@ -333,6 +390,7 @@ def ride_view(request):
             return HttpResponseBadRequest("Invalid pickup or drop address.")
 
     return render(request, 'service1.html')
+
 
 
 def calculate_route(start_location, end_location):
@@ -419,8 +477,8 @@ def save_booking_view(request):
         ambulance_type = request.POST['ambulance_type']
         fare = Decimal(request.POST['fare'])
 
-        # Get driver locations with the specified ambulance type
-        driver_locations = DriverLocation.objects.filter(driver__driver_profile__ambulance_type=ambulance_type)
+        # Correct query: Get driver locations with the specified ambulance type
+        driver_locations = DriverLocation.objects.filter(driver__ambulance_type=ambulance_type)
 
         if not driver_locations:
             messages.error(request, 'No available drivers with the specified ambulance type. Please try again later.')
@@ -444,7 +502,7 @@ def save_booking_view(request):
         nearest_driver = driver_locations.get(latitude=nearest_driver_node[0], longitude=nearest_driver_node[1])
 
         if nearest_driver:
-            driver = nearest_driver.driver.driver_profile
+            driver = nearest_driver.driver
 
             # Calculate estimated time and distance for the ride from pickup to drop-off
             ride_est_time, ride_est_distance = calculate_route((pickup_lat, pickup_lng), (drop_lat, drop_lng))
@@ -486,8 +544,8 @@ def save_booking_view(request):
                 'ambulance_type': ambulance_type,
                 'driver_latitude': nearest_driver_node[0],
                 'driver_longitude': nearest_driver_node[1],
-                'driver_name': driver.user.first_name + ' ' + driver.user.last_name,
-                'phone_number': driver.user.username,
+                'driver_name': driver.user.first_name + ' ' + driver.user.last_name,  # Correct access to CustomUser
+                'phone_number': driver.user.username,  # Correct access to CustomUser
                 'license_number': driver.license_number,
                 'number_plate': driver.number_plate
             })
@@ -496,6 +554,7 @@ def save_booking_view(request):
             return redirect('service1')
 
     return HttpResponseBadRequest("Invalid request method.")
+
 
 
 def booking_success(request):
@@ -528,6 +587,7 @@ def send_ride_request_email(request, ride):
         'drop': ride.drop,
         'estimated_time': ride.estimated_time,
         'estimated_distance': ride.estimated_distance,
+        'fare': ride.fare,
         'accept_url': accept_url,
         'reject_url': reject_url,
     }
@@ -596,24 +656,40 @@ def reject_ride_by_email(request):
         return HttpResponseBadRequest("Invalid request method.")
 
 
-def verify_code(request, ride_id):
+def verify_ride(request, ride_id):
+    ride = get_object_or_404(Ride, id=ride_id)
+
     if request.method == 'POST':
-        entered_code = request.POST.get('code')
-        ride = get_object_or_404(Ride, id=ride_id)
+        try:
+            # Parse the JSON data from the request body
+            data = json.loads(request.body)
+            entered_code = data.get('code')
+        except ValueError:
+            return HttpResponseBadRequest("Invalid JSON data")
+
+        # Log the entered and actual code for debugging
+        logger.info(f"Entered code: {entered_code}, Actual code: {ride.code}")
 
         if entered_code == ride.code:
-            # Mark the ride as verified
             ride.is_verified = True
+            ride.status = 'verified'
             ride.save()
 
-            return redirect('display_map', ride_id=ride.id)
+            return JsonResponse({'success': True})
         else:
-            messages.error(request, 'Invalid code. Please try again.')
-            return redirect('dashboard')
-    else:
-        return HttpResponseBadRequest("Invalid request method.")
+            logger.error("Verification code is incorrect.")
+            return JsonResponse({'success': False, 'error': 'Verification code is incorrect.'})
 
-def check_verification_status(request, ride_id):
+    return render(request, 'ride_map.html', {'ride': ride})
+
+
+
+
+@login_required
+def check_ride_status(request, ride_id):
+    """
+    Checks if the ride is verified.
+    """
     ride = get_object_or_404(Ride, id=ride_id)
     return JsonResponse({'is_verified': ride.is_verified})
 
@@ -644,15 +720,31 @@ def generate_and_send_code(request, ride_id):
 
 
 
-def display_map(request, ride_id):
+@login_required
+def drop_map(request, ride_id):
     # Retrieve the ride and necessary details for displaying the map
     ride = get_object_or_404(Ride, id=ride_id)
     pickup_location = (ride.pickup_latitude, ride.pickup_longitude)
     drop_location = (ride.drop_latitude, ride.drop_longitude)
-
+    driver_name = f"{ride.driver.user.first_name} {ride.driver.user.last_name}".title()
+    phone_number = ride.driver.user.username
+    license_number = ride.driver.license_number
+    number_plate = ride.driver.number_plate
+    ambulance_type = ride.driver.ambulance_type
+    car_model = ride.driver.car_name
+    average_rating_tuple = ride.driver.average_rating,
+    average_rating = average_rating_tuple[0]
     # Construct the Google Maps URL for navigation from pickup to drop-off
     google_maps_url = f"https://www.google.com/maps/dir/?api=1&origin={pickup_location[0]},{pickup_location[1]}&destination={drop_location[0]},{drop_location[1]}&travelmode=driving"
 
+    # Mapping internal ambulance type values to display names
+    ambulance_type_display_map = {
+        'med_bls': 'Med BLS',
+        'med_als': 'Med ALS',
+        'med_icu': 'Med ICU',
+    }
+    # Get the display name or use the original if not found in the map
+    ambulance_type_display = ambulance_type_display_map.get(ambulance_type, ambulance_type)
     # Pass the necessary data to the template for displaying the map
     context = {
         'pickup_location': pickup_location,
@@ -660,6 +752,13 @@ def display_map(request, ride_id):
         'google_maps_url': google_maps_url,
         'ride': ride,  # Include ride object to check the user type in the template
         'ride_id': ride_id,
+        'car_model': car_model,  # Add car name to context
+        'average_rating': float(average_rating),
+        'driver_name': driver_name,
+        'phone_number': phone_number,
+        'license_number': license_number,
+        'number_plate': number_plate,
+        'ambulance_type': ambulance_type_display,  # Use display name for ambulance type
     }
 
     return render(request, 'drop_map.html', context)
@@ -710,18 +809,343 @@ def send_code_to_user(ride_id, code):
 
 
 
-def get_driver_location(request, ride_id):
-    # Ensure ride exists
-    ride = get_object_or_404(Ride, id=ride_id)
-
-    # Ensure there's a driver assigned and that the location is available
+def get_latest_driver_location(request, driver_id):
     try:
-        driver_location = DriverLocation.objects.get(driver=ride.driver.user)
-        data = {
-            'latitude': driver_location.latitude,
-            'longitude': driver_location.longitude
-        }
-        return JsonResponse(data)
+        # Fetch the latest location of the driver
+        driver_location = DriverLocation.objects.get(driver__id=driver_id)
+        return JsonResponse({
+            'latitude': str(driver_location.latitude),
+            'longitude': str(driver_location.longitude)
+        }, status=200)
     except DriverLocation.DoesNotExist:
         return JsonResponse({'error': 'Driver location not found'}, status=404)
 
+logger = logging.getLogger(__name__)
+
+@login_required
+@require_GET
+def get_driver_location(request, ride_id):
+    try:
+        # Log the incoming request
+        logger.info(f"Fetching driver location for ride_id: {ride_id}")
+
+        # Fetch the latest driver location for the given ride ID
+        driver_location = DriverLocation.objects.filter(ride_id=ride_id).latest('timestamp')
+
+        # If the location is found, return it as a JSON response
+        if driver_location:
+            data = {
+                'latitude': driver_location.latitude,
+                'longitude': driver_location.longitude,
+
+            }
+            logger.info(f"Driver location found: {data}")
+            return JsonResponse(data)
+        else:
+            # Log if no location is found and return a 404 response
+            logger.warning(f"No driver location found for ride_id {ride_id}")
+            return JsonResponse({'error': 'Driver location not found.'}, status=404)
+
+    except DriverLocation.DoesNotExist:
+        # Log the specific error when the driver location does not exist
+        logger.error(f"DriverLocation.DoesNotExist: No driver location found for ride_id {ride_id}")
+        return JsonResponse({'error': 'Driver location not found.'}, status=404)
+
+    except Exception as e:
+        # Log any other unexpected errors
+        logger.error(f"Exception occurred while fetching driver location for ride_id {ride_id}: {str(e)}")
+        return JsonResponse({'error': f'Internal server error: {str(e)}'}, status=500)
+
+
+logger = logging.getLogger(__name__)
+
+@login_required
+def get_driver_location_by_ride(request, ride_id):
+    try:
+        logger.info(f"Fetching driver location for ride_id: {ride_id}")
+
+        # Fetch the ride object
+        ride = get_object_or_404(Ride, id=ride_id)
+
+        # Access the DriverLocation directly using the related name 'driver_location'
+        driver_location = ride.driver.driver_location
+
+        # If the location is found, return it as a JSON response
+        data = {
+            'latitude': driver_location.latitude,
+            'longitude': driver_location.longitude,
+        }
+        logger.info(f"Driver location found: {data}")
+        return JsonResponse(data)
+
+    except DriverLocation.DoesNotExist:
+        logger.error(f"No driver location found for ride_id {ride_id}")
+        return JsonResponse({'error': 'Driver location not found.'}, status=404)
+
+    except Exception as e:
+        logger.error(f"Error fetching driver location for ride_id {ride_id}: {str(e)}")
+        return JsonResponse({'error': f'Internal server error: {str(e)}'}, status=500)
+
+
+@login_required
+@csrf_exempt
+def complete_ride(request, ride_id):
+    """
+    Marks the ride as completed and redirects driver and user to payment pages.
+    """
+    if request.method == 'POST':
+        try:
+            ride = get_object_or_404(Ride, id=ride_id)
+            ride.is_completed = True
+            ride.status = 'completed'
+            ride.save()
+
+            return JsonResponse({
+                'success': True,
+                'driver_redirect_url': redirect('driver_payment', ride_id=ride.id).url,
+                'user_redirect_url': redirect('user_payment', ride_id=ride.id).url
+            })
+        except Ride.DoesNotExist:
+            return JsonResponse({'error': 'Ride not found'}, status=404)
+    return JsonResponse({'error': 'Invalid request method'}, status=400)
+
+
+@login_required
+@csrf_exempt
+def confirm_payment(request, ride_id):
+    if request.method == 'POST':
+        try:
+            ride = get_object_or_404(Ride, id=ride_id)
+            ride.is_paid = True
+            ride.payment_confirmed = True
+            ride.is_completed = True
+            ride.save()
+
+            if request.user.is_driver:
+                # Redirect driver to the main page
+                return JsonResponse({'success': True, 'redirect_url': '/'})
+        except Ride.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Ride not found'}, status=404)
+    return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=400)
+
+
+@login_required
+def get_ride_completion_status(request, ride_id):
+    """
+    Checks if the ride is completed and returns the appropriate URLs for redirection.
+    """
+    try:
+        ride = get_object_or_404(Ride, id=ride_id)
+        if ride.is_completed:
+            return JsonResponse({
+                'is_completed': True,
+                'driver_redirect_url': redirect('driver_payment', ride_id=ride.id).url,
+                'user_redirect_url': redirect('user_payment', ride_id=ride.id).url
+            })
+        else:
+            return JsonResponse({'is_completed': False})
+    except Ride.DoesNotExist:
+        return JsonResponse({'error': 'Ride not found'}, status=404)
+
+
+
+
+
+
+def payment_page(request, ride_id):
+    if request.user.is_driver:
+        return render(request, 'driver_payment.html', {'ride_id': ride_id})
+    else:
+        return render(request, 'user_payment.html', {'ride_id': ride_id})
+
+@login_required
+def user_payment(request, ride_id):
+    # Your logic for user payment
+    return render(request, 'user_payment.html', {'ride_id': ride_id})
+
+@login_required
+def driver_payment(request, ride_id):
+    # Your logic for driver payment
+    return render(request, 'driver_payment.html', {'ride_id': ride_id})
+
+@login_required
+def feedback(request, ride_id):
+    ride = get_object_or_404(Ride, id=ride_id)
+
+    if request.method == 'POST':
+        rating = request.POST.get('rating')
+        comments = request.POST.get('comments')
+        selected_options = request.POST.getlist('options')  # Get the list of selected options
+
+        # Validate the rating
+        try:
+            rating = float(rating)
+        except (TypeError, ValueError):
+            rating = None
+
+        if rating is None or rating < 1 or rating > 5:
+            messages.error(request, "Invalid rating value.")
+            return render(request, 'feedback.html', {'ride': ride})
+
+        try:
+            # Create and save the feedback
+            Feedback.objects.create(
+                ride=ride,
+                rating=rating,
+                comments=comments,
+                selected_options=','.join(selected_options)  # Join options into a comma-separated string
+            )
+            messages.success(request, "Feedback successfully submitted!")
+        except Exception as e:
+            messages.error(request, "An error occurred while saving feedback.")
+            print(f"Error: {e}")  # Log the error for debugging
+
+        # Redirect to a 'thank you' page or another relevant page
+        return redirect('/')  # Replace with your actual redirect
+
+    return render(request, 'feedback.html', {'ride': ride})
+
+
+@login_required
+def check_payment_status(request, ride_id):
+    ride = get_object_or_404(Ride, id=ride_id)
+
+    if ride.payment_confirmed:
+        # Redirect user to the feedback page
+        return JsonResponse({'success': True, 'redirect_url': f'/ride/{ride_id}/feedback/'})
+    else:
+        # Payment is not confirmed yet
+        return JsonResponse({'success': False, 'message': 'Payment not confirmed yet.'})
+
+
+
+
+
+
+
+
+logger = logging.getLogger(__name__)
+
+@csrf_exempt
+def update_driver_location(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            latitude = data.get('lat')
+            longitude = data.get('lng')
+
+            if latitude is None or longitude is None:
+                return JsonResponse({'success': False, 'error': 'Latitude and longitude are required'}, status=400)
+
+            # Retrieve the Driver instance associated with the authenticated user
+            try:
+                driver = Driver.objects.get(user=request.user)
+            except Driver.DoesNotExist:
+                logger.error(f"Driver not found for user: {request.user.id}")
+                return JsonResponse({'success': False, 'error': 'Driver not found'}, status=404)
+
+            # Update or create the driver's current location
+            DriverLocation.objects.update_or_create(
+                driver=driver,
+                defaults={'latitude': latitude, 'longitude': longitude}
+            )
+
+            logger.info(f"Location updated successfully for driver: {driver.id}")
+            return JsonResponse({'success': True, 'message': 'Location updated successfully'}, status=200)
+        except Exception as e:
+            logger.error(f"Error in update_driver_location: {str(e)}")
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+    else:
+        logger.warning(f"Invalid request method: {request.method}")
+        return JsonResponse({'success': False, 'error': 'Invalid request method'}, status=405)
+
+@login_required
+def edit_driver_profile(request):
+    driver = request.user.driver_profile  # Get the driver profile linked to the logged-in user
+    if request.method == 'POST':
+        # Update the driver's details
+        driver.license_number = request.POST.get('license_number')
+        driver.number_plate = request.POST.get('number_plate')
+        driver.ambulance_type = request.POST.get('ambulance_type')
+        driver.car_name = request.POST.get('car_name')
+
+        # Handle profile image update if provided
+        if request.FILES.get('profile_image'):
+            driver.profile_image = request.FILES.get('profile_image')
+
+        # Update user details
+        request.user.first_name = request.POST.get('first_name')
+        request.user.last_name = request.POST.get('last_name')
+        request.user.username = request.POST.get('phone')
+
+        # Save the changes
+        request.user.save()
+        driver.save()
+
+        return redirect('dashboard')  # Redirect to the driver's profile page after saving
+    else:
+        # Render the edit form with current profile data
+        context = {
+            'user': request.user,
+            'driver': driver,
+        }
+        return render(request, 'edit_profile.html', context)
+
+def hospital_list(request):
+    return render(request, 'hospital_list.html')
+
+def get_nearby_hospitals(request):
+    user_latitude = request.GET.get('latitude')
+    user_longitude = request.GET.get('longitude')
+
+    if user_latitude and user_longitude:
+        user_location = (float(user_latitude), float(user_longitude))
+
+        # Fetch all hospitals
+        hospitals = Hospital.objects.all()
+        hospital_distances = []
+
+        # Calculate distance from user location to each hospital
+        for hospital in hospitals:
+            hospital_location = (hospital.latitude, hospital.longitude)
+            distance = geodesic(user_location, hospital_location).kilometers
+            hospital_distances.append((hospital, distance))
+
+        # Sort hospitals by distance
+        hospital_distances.sort(key=lambda x: x[1])
+
+        # Serialize sorted hospitals
+        serialized_hospitals = [
+            {
+                "id": hospital.id,
+                "name": hospital.name,
+                "address": hospital.address,
+                "phone_number": hospital.phone_number,
+                "latitude": str(hospital.latitude),
+                "longitude": str(hospital.longitude),
+                "website": hospital.website,
+                "rating": float(hospital.rating) if hospital.rating else None,
+                "distance": round(distance, 2)  # Include distance for display
+            }
+            for hospital, distance in hospital_distances
+        ]
+        return JsonResponse(serialized_hospitals, safe=False)
+    else:
+        return JsonResponse({'error': 'Unable to get user location'}, status=400)
+
+def new_service(request):
+    if request.method == 'POST':
+        hospital_id = request.POST.get('hospital_id')
+        drop = request.POST.get('drop')
+    else:  # fallback for GET requests if needed
+        hospital_id = request.GET.get('hospital_id')
+        drop = request.GET.get('drop')
+
+    hospital = get_object_or_404(Hospital, id=hospital_id)
+
+    context = {
+        'drop': drop,
+        'hospital': hospital
+    }
+
+    return render(request, 'new_service.html', context)

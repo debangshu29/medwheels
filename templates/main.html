@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -329,34 +330,35 @@ nav li:nth-last-child(2) {
 
                 {% if request.user.is_authenticated %}
                     {% if request.user.is_driver %}
-                        <li><a href="#">Business</a></li>
+                        <li><a href="business">Business</a></li>
                         <li><a href="#">Contact</a></li>
                         <li><a href ="dashboard"> Dashboard</a></li>
-                        <li><a href="#">About</a></li>
+                        <li><a href="about">About</a></li>
                         {% if request.user.is_authenticated %}
-                            <li><a href="logout">{{ request.user.first_name }}</a></li>
+                            <li><a href="logout">{{ request.user.first_name | title }}</a></li>
                         {% else %}
                             <li><a href="login">Login</a></li>
                         {% endif %}
                     {% else %}
                         <li><a href="service">Services</a></li>
-                        <li><a href="#">Drive</a></li>
+                        <li><a href="drive_page">Drive</a></li>
                         <li><a href="#">Contact</a></li>
-                        <li><a href="#">About</a></li>
+                        <li><a href="about">About</a></li>
+                        <li><a href="{% url 'hospital_list' %}">Hospitals</a></li>
                         {% if request.user.is_authenticated %}
-                            <li><a href="logout">{{ request.user.first_name }}</a></li>
+                            <li><a href="logout">{{ request.user.first_name | title }}</a></li>
                         {% else %}
                             <li><a href="login">Login</a></li>
                         {% endif %}
                     {% endif %}
                 {% else %}
                     <li><a href="login">Services</a></li>
-                    <li><a href="#">Business</a></li>
-                    <li><a href="#">Drive</a></li>
+                    <li><a href="business">Business</a></li>
+                    <li><a href="drive_page">Drive</a></li>
                     <li><a href="#">Contact</a></li>
-                    <li><a href="#">About</a></li>
+                    <li><a href="about">About</a></li>
                     {% if request.user.is_authenticated %}
-                        <li><a href="logout">{{ request.user.first_name }}</a></li>
+                        <li><a href="logout">{{ request.user.first_name | title }}</a></li>
                     {% else %}
                         <li><a href="login">Login</a></li>
                     {% endif %}
@@ -366,34 +368,35 @@ nav li:nth-last-child(2) {
                 <li class="logo"><a href="#"><i class="fa-solid fa-truck-medical"></i> Med<span>Wheels</span></a></li>
                 {% if request.user.is_authenticated %}
                     {% if request.user.is_driver %}
-                        <li class="hideOnMobile"><a href="#">Business</a></li>
+                        <li class="hideOnMobile"><a href="business">Business</a></li>
                         <li class="hideOnMobile"><a href="#">Contact</a></li>
                         <li class="hideOnMobile"><a href ="dashboard"> Dashboard</a></li>
-                        <li class="hideOnMobile"><a href="#">About</a></li>
+                        <li class="hideOnMobile"><a href="about">About</a></li>
                         {% if request.user.is_authenticated %}
-                            <li class="hideOnMobile"><a href="logout">{{ request.user.first_name }}</a></li>
+                            <li class="hideOnMobile"><a href="logout">{{ request.user.first_name | title }}</a></li>
                         {% else %}
                             <li class="hideOnMobile"><a href="login">Login</a></li>
                         {% endif %}
                     {% else %}
                         <li class="hideOnMobile"><a href="service">Services</a></li>
-                        <li class="hideOnMobile"><a href="#">Drive</a></li>
+                        <li class="hideOnMobile"><a href="drive_page">Drive</a></li>
+                        <li class="hideOnMobile"><a href="{% url 'hospital_list' %}">Hospitals</a></li>
                         <li class="hideOnMobile"><a href="#">Contact</a></li>
-                        <li class="hideOnMobile"><a href="#">About</a></li>
+                        <li class="hideOnMobile"><a href="about">About</a></li>
                         {% if request.user.is_authenticated %}
-                            <li class="hideOnMobile"><a href="logout">{{ request.user.first_name }}</a></li>
+                            <li class="hideOnMobile"><a href="logout">{{ request.user.first_name | title }}</a></li>
                         {% else %}
                             <li class="hideOnMobile"><a href="login">Login</a></li>
                         {% endif %}
                     {% endif %}
                 {% else %}
                     <li class="hideOnMobile"><a href="login">Services</a></li>
-                    <li class="hideOnMobile"><a href="#">Business</a></li>
-                    <li class="hideOnMobile"><a href="#">Drive</a></li>
+                    <li class="hideOnMobile"><a href="business">Business</a></li>
+                    <li class="hideOnMobile"><a href="drive_page">Drive</a></li>
                     <li class="hideOnMobile"><a href="#">Contact</a></li>
-                    <li class="hideOnMobile"><a href="#">About</a></li>
+                    <li class="hideOnMobile"><a href="about">About</a></li>
                     {% if request.user.is_authenticated %}
-                        <li class="hideOnMobile"><a href="logout">{{ request.user.first_name }}</a></li>
+                        <li class="hideOnMobile"><a href="logout">{{ request.user.first_name | title }}</a></li>
                     {% else %}
                         <li class="hideOnMobile"><a href="login">Login</a></li>
                     {% endif %}
@@ -411,7 +414,7 @@ nav li:nth-last-child(2) {
             <h1>MedWheels At Your Service</h1>
             <p>24x7 emergency medical transportation support.<br>Ensuring professional medical care throughout the
                 medical transport journey.</p>
-
+            {% if request.user.is_authenticated and not request.user.is_driver %}
             <button>
                 {% if request.user.is_authenticated%}
                     <a href="service">Book Now</a>
@@ -419,6 +422,7 @@ nav li:nth-last-child(2) {
                     <a href="login">Book Now</a>
                 {%  endif%}
             </button>
+            {% endif %}
         </div>
         <div class="banner-right">
             <img src="/static/pink.png" alt="">
@@ -460,12 +464,19 @@ nav li:nth-last-child(2) {
     <script>
         function showSidebar() {
             const sidebar = document.querySelector('.sidebar')
-            sidebar.style.display = 'flex'
+            sidebar.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
         }
         function hideSidebar() {
             const sidebar = document.querySelector('.sidebar')
-            sidebar.style.display = 'none'
+            sidebar.style.display = 'none';
+            document.body.style.overflow = 'auto';
         }
+        window.onpageshow = function(event) {
+            if (event.persisted || (window.performance && window.performance.navigation.type === 2)) {
+                window.location.reload();
+            }
+        };
     </script>
 </body>
 

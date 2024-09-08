@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -18,29 +19,23 @@
         .container {
             width: 100%;
             height: 100vh;
-            background: rgb(250 236 255);
+            background: rgb(250, 236, 255);
             display: flex;
             align-items: center;
             justify-content: center;
+            padding: 20px;
         }
 
         .popup {
-            width: 400px;
-<!--            background: white;-->
+            width: 90%;
+            max-width: 400px;
+            background: white;
             border-radius: 6px;
-            position: absolute;
-            /* top: 50%; */
-            top: 50%;
-            left: 50%;
-            /* transform: translate(-50%,-50%); */
-            transform: translate(-50%, -50%);
+            position: relative;
             text-align: center;
-            padding: 0 30px 30px;
+            padding: 20px;
             color: #070707;
-
         }
-
-
 
         .popup img {
             width: 100px;
@@ -50,81 +45,95 @@
         }
 
         .popup h2 {
-            font-size: 38px;
+            font-size: 28px;
             font-weight: 500;
-            margin: 30px 0 10px;
+            margin: 20px 0 10px;
         }
 
-        .l1 {
-            /* height: 120px;
-            width: 120px; */
+        .popup p {
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+
+        .load {
+            position: relative;
             height: 50px;
-            width: 50px;
+        }
+
+        .l1,
+        .l2 {
+            height: 40px;
+            width: 40px;
             box-sizing: border-box;
             border: 2px solid #ffffff;
             position: absolute;
-            margin: auto;
-            /* top: 0; */
-            top: 250px;
-            bottom: 0;
-            right: 0;
-            left: -120px;
+            top: 50%;
+            transform: translateY(-50%);
             border-radius: 50%;
             background-color: #5dde2d;
+        }
+
+        .l1 {
+            left: calc(50% - 60px);
             animation: move1 1.5s infinite;
         }
 
-        @keyframes move1 {
-            50% {
-                left: 120px;
-                z-index: 0;
-            }
-
-            51% {
-                z-index: 2;
-            }
-
-            100% {
-                left: -120px;
-                z-index: 2;
-            }
-        }
-
         .l2 {
-            /* height: 120px;
-            width: 120px; */
-            height: 50px;
-            width: 50px;
-            background-color: #5dde2d;
-            border: 2px solid #ffffff;
-            position: absolute;
-            margin: auto;
-            /* top: 0; */
-            top: 250px;
-            bottom: 0;
-            left: 120px;
-            right: 0;
-            border-radius: 50%;
+            left: calc(50% + 20px);
             animation: move2 1.5s infinite;
         }
 
-        @keyframes move2 {
+        @keyframes move1 {
+            0% {
+                left: calc(50% - 60px);
+            }
+
             50% {
-                left: -120px;
+                left: calc(50% + 20px);
             }
 
             100% {
-                left: 120px;
+                left: calc(50% - 60px);
+            }
+        }
+
+        @keyframes move2 {
+            0% {
+                left: calc(50% + 20px);
+            }
+
+            50% {
+                left: calc(50% - 60px);
+            }
+
+            100% {
+                left: calc(50% + 20px);
+            }
+        }
+
+        @media (max-width: 480px) {
+            .popup h2 {
+                font-size: 24px;
+            }
+
+            .popup p {
+                font-size: 14px;
+            }
+
+            .l1,
+            .l2 {
+                height: 30px;
+                width: 30px;
             }
         }
     </style>
 </head>
 
-<body onload="redirectToRideMap()" >
+<body onload="redirectToRideMap()">
     <div class="container">
         <div class="popup" id="popup">
             <img src="static/tick.jpg" alt="">
-            <h2>Request Sent Successful !</h2>
+            <h2>Request Sent Successful!</h2>
             <p>Your booking request has been sent successfully. Please wait for confirmation.</p>
             <div class="load">
                 <div class="l1"></div>
@@ -134,11 +143,10 @@
     </div>
 
     <script>
-
         function redirectToRideMap() {
             setTimeout(function () {
-                window.location.href = "{% url 'ride_map' ride_id=ride_id %}"; // Replace '/ride-map/{{ ride.id }}/' with your actual URL
-            }, 30000); // 30000 milliseconds = 30sec
+                window.location.href = "{% url 'ride_map' ride_id=ride_id %}";
+            }, 30000);
         }
     </script>
 </body>

@@ -9,221 +9,312 @@
         integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
         crossorigin="anonymous" referrerpolicy="no-referrer" />
     <style>
-        /* Your CSS styles */
+        /* General Styles */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
 
+        html, body {
+            height: 100%;
+        }
+
         body {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
             background-color: white;
+            font-family: Arial, sans-serif;
         }
 
         nav {
+            padding: 5px 20px;
             display: flex;
+            justify-content: flex-start;
+            align-items: center;
             background-color: white;
             box-shadow: 3px 3px 5px rgba(0, 0, 0, 0.1);
         }
 
-        nav h2 {
+        .head-left {
             display: flex;
-            font-size: 16px;
-            padding-top: 17px;
-            padding-left: 17px;
+            align-items: center;
         }
 
-        nav h2 i {
-            font-size: 18px;
+        .head-left h4 {
+            font-size: 17px;
+            padding-right: 20px;
+            margin-right: 10px;
         }
 
-        nav h2 span {
+        .head-left h4 i {
+            padding-right: 3px;
+        }
+
+        .head-left h4 span {
             color: rgb(255, 112, 60);
         }
 
-        nav ul {
-            width: 100%;
-            list-style: none;
+        .navbar-links {
             display: flex;
-            justify-content: flex-start;
-            align-items: center;
         }
 
-        nav li {
-            height: 50px;
-        }
-
-        nav a {
-            height: 100%;
-            padding: 0 30px;
+        .navbar-links a {
             text-decoration: none;
-            display: flex;
-            align-items: center;
+            padding: 5px 15px;
+            margin: 5px 10px;
             color: black;
-            font-size: 20px;
+            font-size: 18px;
             font-weight: 500;
+            border-radius: 20px;
         }
 
-        nav a:hover {
-            background-color: #f0f0f0;
+        .navbar-links a:hover {
+            background: rgb(255, 238, 238);
+        }
+
+        .menu-icon {
+            display: none;
+            font-size: 24px;
+            cursor: pointer;
+            margin-left: auto;
+        }
+
+        /* Blur effect on the main content */
+        .blurred {
+            filter: blur(4px);
+            transition: filter 0.3s ease;
+        }
+
+        /* Responsive Styles */
+        @media screen and (max-width: 768px) {
+            .navbar-links {
+                display: none;
+                position: absolute;
+                top: 50px;
+                right: 20px;
+                background: white;
+                flex-direction: column;
+                width: 150px;
+                box-shadow: 3px 3px 5px rgba(0, 0, 0, 0.1);
+                z-index: 1000;
+            }
+
+            .navbar-links a {
+                padding: 10px 15px;
+                margin: 0;
+                text-align: right;
+                color: black;
+                font-size: 20px;
+                font-weight: 600;
+            }
+
+            .menu-icon {
+                display: block;
+                margin-left: auto;
+            }
+
+            .navbar-links.active {
+                display: flex;
+                position: fixed;
+                right: 0;
+                height: 100vh;
+                width: 250px;
+                background-color: rgb(250, 236, 255, 55%);
+                box-shadow: -10px 0 10px rgb(0 0 0 / 30%);
+                flex-direction: column;
+                align-items: flex-start;
+                justify-content: flex-start;
+                z-index: 1000;
+                padding-top: 20px;
+            }
         }
 
         .hero {
-            display: grid;
-            grid-template-columns: calc(400px + 18px) 1fr;
-            grid-template-rows: minmax(0, 1fr);
-            overflow-y: scroll;
-            padding: 5px;
-            padding-left: 20px;
-            padding-right: 20px;
-            width: 100%;
-            background: #ececec;
-            margin-top: 5px;
-            padding-top: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            flex: 1; /* Take remaining space */
+            padding: 20px;
+            background: rgb(250, 236, 255, 55%);
         }
 
-        .hero-left .hero-form {
-            border: 2px solid black;
-            width: 380px;
-            border-radius: 12px;
-            padding: 20px;
+        .hero-left,
+        .hero-right {
+            flex: 1;
+            margin: 10px;
+        }
+
+        .hero-left {
+            max-width: 400px;
+        }
+
+        .hero-left h1 {
+            font-size: 1.8rem;
+            margin-bottom: 10px;
         }
 
         .info {
             border-radius: 15px;
-            padding-left: 12px;
-            padding-right: 12px;
+            background-color: #fff;
+            padding: 15px;
+            margin-bottom: 20px;
         }
 
         .info p {
             font-weight: 600;
-            background: white;
             margin: 10px 0;
-            padding: 12px;
-            width: 96%;
-            margin-left: 10px;
-            border-radius: 8px;
         }
 
         .info p span {
             font-weight: 500;
         }
 
-        .hero-left h1 {
-            font-size: 30px;
-            padding-left: 10px;
-            margin-bottom: 6px;
-        }
-
-
-        .hero-left .form-group {
+        .form-group {
             display: flex;
             flex-direction: column;
+            margin-bottom: 20px;
         }
 
-        .hero-left .form-group input {
-            margin: 20px 0;
-            width: 90%;
-            font-size: 20px;
-            border: 1px solid rgb(255, 112, 60);
-            outline: none;
-            background-color: transparent;
-            padding: 10px 126px;
-            border-radius: 6px;
-        }
-
-        .hero-left .form-group input:focus {
-            border: 1px solid black;
-            color: rgb(255, 112, 60);
-        }
-
-        .hero-left .form-group button {
+        .form-group button {
             border: none;
             outline: none;
             background: rgba(235, 87, 33, 0.932);
             color: white;
-            font-size: 16px;
+            font-size: 1rem;
             padding: 12px;
-            width: 91%;
-            margin-left: 23px;
+            margin: 10px 0;
             border-radius: 8px;
-            margin-bottom: 10px;
+            transition: background 0.3s;
         }
 
-        .hero-left button:hover {
+        .form-group button:hover {
             background: rgb(254, 135, 92);
         }
-        #submitButton{
+
+        #submitButton {
             border: 1px solid rgba(235, 87, 33, 0.932);
-            outline: none;
             background: white;
             color: black;
-            font-size: 16px;
+            font-size: 1rem;
             padding: 12px;
-            width: 91%;
-            margin-left: 23px;
+            width: 100%;
             border-radius: 8px;
-            margin-bottom: 10px;
+            margin-top: 20px;
+            font-weight: 600;
         }
-        #submitButton:hover{
-            background: #f5efeb;
+
+        #submitButton:hover {
+            background: rgba(255, 72, 5, 0.172);
         }
-        .hero-left h2 {
-            margin: 10px 0 5px 0;
+
+        .hero-right {
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
         .hero-right #map {
             height: 90vh;
             width: 100%;
+            border-radius: 8px;
         }
 
         .foot {
             width: 100%;
-            padding-bottom: 10px;
+            padding: 15px;
             background-color: #fff;
             box-shadow: -1px -4px 5px 2px rgba(0, 0, 0, 0.1);
-            margin-top: 5px;
+            text-align: center;
         }
 
         .foot h4 {
-            text-align: center;
-            font-size: 14px;
+            font-size: 0.9rem;
             font-weight: 400;
-            padding-top: 10px;
         }
 
         .foot h4 span {
             color: rgb(255, 112, 60);
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .hero-left,
+            .hero-right {
+                flex: 1 1 100%;
+                margin: 0 0 20px 0;
+            }
+
+            .hero-left {
+                max-width: 100%;
+            }
+
+            .hero-right #map {
+                height: 50vh; /* Adjusted for better fit on smaller screens */
+            }
+        }
+
+        @media (max-width: 480px) {
+            .hero {
+                padding: 10px;
+            }
+
+            .hero-left h1 {
+                font-size: 1.5rem;
+            }
+
+            .form-group button {
+                font-size: 0.9rem;
+                padding: 10px;
+            }
+
+            #submitButton {
+                font-size: 0.9rem;
+                padding: 10px;
+            }
+
+            .hero-right #map {
+                height: 40vh; /* More compact for very small screens */
+            }
         }
     </style>
 </head>
 
 <body>
     <nav>
-        <div class="logo">
-            <h2><i class="fa-solid fa-truck-medical"></i> Med <span>Wheels</span></h2>
+        <div class="head-left">
+            <h4><i class="fa-solid fa-truck-medical"></i>Med<span>Wheels</span></h4>
         </div>
-        <ul>
-            <li><a href="">Home</a></li>
-            <li><a href="">About</a></li>
-            <li><a href="">Contact</a></li>
-        </ul>
+        <div class="navbar-links">
+            <a href="/">Home</a>
+            <a href="#">Contact</a>
+            <a href="about">About</a>
+        </div>
+        <span class="menu-icon"><i class="fas fa-bars"></i></span> <!-- Three-line menu icon -->
     </nav>
 
     <section class="hero">
         <div class="hero-left">
             <h1>Confirm Booking</h1>
             <div class="info">
-                <p >Pickup: {{ pickup }}</p>
-                <p >Drop: {{ drop }}</p>
+                <p>Pickup: {{ pickup }}</p>
+                <p>Drop: {{ drop }}</p>
                 <p><i class="fa-solid fa-clock"></i> <span>Ride Estimated Time: </span> {{ ride_est_time }}</p>
                 <p><i class="fa-solid fa-route"></i> <span>Ride Estimated Distance:</span> {{ ride_est_distance }}</p>
             </div>
             <h1>Choose Ambulance Type</h1>
             <div class="form-group">
-                <button type="button" id="MedBasic" class="ambulance-type" data-type="MedBasic" data-fare="{{ fare_medbasic }}">MedBasic - ₹{{ fare_medbasic }}</button>
-                <button type="button" id="MedPro" class="ambulance-type" data-type="MedPro" data-fare="{{ fare_medpro }}">MedPro - ₹{{ fare_medpro }}</button>
+                <button type="button" id="med_bls" class="ambulance-type" data-type="med_bls" data-fare="{{ fare_medbls }}">
+                    Med BLS - ₹{{ fare_medbls }}
+                </button>
+                <button type="button" id="med_als" class="ambulance-type" data-type="med_als" data-fare="{{ fare_medals }}">
+                    Med ALS - ₹{{ fare_medals }}
+                </button>
+                <button type="button" id="med_icu" class="ambulance-type" data-type="med_icu" data-fare="{{ fare_medicu }}">
+                    Med ICU - ₹{{ fare_medicu }}
+                </button>
             </div>
+
 
             <form action="{% url 'save_booking' %}" method="post">
                 {% csrf_token %}
@@ -233,28 +324,49 @@
                 <input type="hidden" name="estimated_distance" value="{{ estimated_distance }}">
                 <input type="hidden" name="pickup_lat" value="{{ pickup_lat }}">
                 <input type="hidden" name="pickup_lng" value="{{ pickup_lng }}">
-                <input type="hidden" name="drop_lat" value="{{ drop_lat }}"> <!-- Add this field -->
-                <input type="hidden" name="drop_lng" value="{{ drop_lng }}"> <!-- Add this field -->
+                <input type="hidden" name="drop_lat" value="{{ drop_lat }}">
+                <input type="hidden" name="drop_lng" value="{{ drop_lng }}">
                 <input type="hidden" name="ambulance_type" id="ambulance_type">
                 <input type="hidden" name="fare" id="fare">
-                <button type="submit" id="submitButton" style="display: none;">Request</button>
+                <button type="submit" id="submitButton" style="display:none;">Submit</button>
             </form>
-
         </div>
-
         <div class="hero-right">
             <div id="map"></div>
         </div>
     </section>
 
-    <section class="foot">
-        <h4>© Copyright Reserves | <span>@DeskDuo</span></h4>
-    </section>
+    <div class="foot">
+        <h4>&copy; 2024 MedWheels. All rights reserved.</h4>
+    </div>
+
+    <script>
+        // Toggle navbar links and blur effect on the main content
+        document.querySelector('.menu-icon').addEventListener('click', function () {
+            const navbarLinks = document.querySelector('.navbar-links');
+            const heroSection = document.querySelector('.hero');
+            const footerSection = document.querySelector('.foot');
+            const body = document.body;
+
+            navbarLinks.classList.toggle('active');
+            heroSection.classList.toggle('blurred');
+            footerSection.classList.toggle('blurred');
+
+            // Toggle scroll prevention on the body
+            if (navbarLinks.classList.contains('active')) {
+                body.classList.add('no-scroll'); // Add class to prevent scroll
+            } else {
+                body.classList.remove('no-scroll'); // Remove class to enable scroll
+            }
+        });
+    </script>
 
     <script>
         function initMap() {
             const directionsService = new google.maps.DirectionsService();
-            const directionsRenderer = new google.maps.DirectionsRenderer();
+            const directionsRenderer = new google.maps.DirectionsRenderer({
+                suppressMarkers: true // Suppress default A and B markers
+            });
             const map = new google.maps.Map(document.getElementById("map"), {
                 zoom: 10,
                 center: { lat: parseFloat("{{ pickup_lat }}"), lng: parseFloat("{{ pickup_lng }}") },
@@ -272,6 +384,28 @@
             directionsService.route(request, function(response, status) {
                 if (status === "OK") {
                     directionsRenderer.setDirections(response);
+
+                    // Add custom marker for the pickup location (start)
+                    const startMarker = new google.maps.Marker({
+                        position: response.routes[0].legs[0].start_location,
+                        map: map,
+                        icon: {
+                            url: "/static/man1.png", // Path to your custom image
+                            scaledSize: new google.maps.Size(50, 45) // Adjust size as needed
+                        },
+                        title: "Pickup Location"
+                    });
+
+                    // Add custom marker for the drop location (end)
+                    const endMarker = new google.maps.Marker({
+                        position: response.routes[0].legs[0].end_location,
+                        map: map,
+                        icon: {
+                            url: "/static/hospital1.png", // Path to your custom image
+                            scaledSize: new google.maps.Size(35, 30) // Adjust size as needed
+                        },
+                        title: "Drop Location"
+                    });
                 } else {
                     console.error("Error fetching directions:", status);
                     alert("Error fetching directions: " + status);
@@ -282,7 +416,7 @@
                 url: "/static/car.png",
                 scaledSize: new google.maps.Size(50, 36) // Set the size of the marker
             };
-            // Add marker for driver's location
+            // Add marker for nearest drivers' locations
             {% for driver in nearest_drivers %}
             var driverMarker = new google.maps.Marker({
                 position: { lat: parseFloat("{{ driver.latitude }}"), lng: parseFloat("{{ driver.longitude }}") },
@@ -303,9 +437,7 @@
             });
         });
     </script>
-
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAvSl8hKmXkz9tE8ctzuXtRQz0Y2lUFknI&libraries=places&callback=initMap"
-        async defer></script>
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAvSl8hKmXkz9tE8ctzuXtRQz0Y2lUFknI&callback=initMap"></script>
 </body>
 
 </html>
